@@ -1,6 +1,5 @@
 import { Groq } from 'groq-sdk';
 import { config } from '../config/config.js';
-import { createEvent } from './calendarService.js';
 
 const groq = new Groq({
   apiKey: config.groq.apiKey,
@@ -12,40 +11,62 @@ const MODEL_FALLBACK_LIST = [
   'openai/gpt-oss-120b',
 ];
 
-// --- *** FINAL, HIGHLY-FOCUSED PROMPT *** ---
+// --- *** NEW, SMARTER PROMPT *** ---
 const TASK_EXTRACTION_PROMPT = `
-You are a highly specialized AI assistant for students at VIT. Your purpose is to extract ONLY HIGH-PRIORITY actions and deadlines from emails sent by the Career Development Center (CDC). Your entire focus is on time-sensitive tasks like job applications and interview registrations.
+You are a hyper-intelligent AI assistant for VIT students, specializing in extracting and structuring actionable tasks from CDC emails. Your goal is to identify specific, time-bound events and ignore vague announcements.
 
 **JSON Schema:**
 For each high-priority task, create a JSON object with the following schema.
 {
-  "description": "string (Full, clear description of the action required)",
-  "taskType": "string ('Application', 'Interview', 'Workshop', 'Deadline', or 'Other')",
+  "description": "string (A concise, action-oriented summary of the task. E.g., 'Apply for the Systems Engineer role')",
+  "taskType": "string ('Application', 'Interview', 'Online Test', 'Workshop', 'Deadline', or 'Other')",
   "company": "string (Company name if mentioned, otherwise null)",
-  "dueDate": "string (The exact deadline or event date, formatted as a local time ISO string 'YYYY-MM-DDTHH:mm:ss')",
-  "assignedTo": "string (This should always be 'All Eligible Students')"
+  "startDate": "string (The start time of an event in 'YYYY-MM-DDTHH:mm:ss' format. Use this for time windows.)",
+  "endDate": "string (The end time of an event in 'YYYY-MM-DDTHH:mm:ss' format. Use this for time windows.)",
+  "dueDate": "string (A single point in time deadline in 'YYYY-MM-DDTHH:mm:ss' format. Use this if there is no window.)",
+  "isActionable": "boolean (true if the task requires a direct action like applying or registering, otherwise false)"
 }
 
 **CRITICAL INSTRUCTIONS & EXAMPLES:**
-1.  **HIGH-PRIORITY FILTER:** You MUST ONLY extract tasks that have a clear, near-term deadline. If an email is informational, about a future event without a current deadline, or a general announcement, IGNORE IT and return an empty array [].
-2.  **DEADLINE IS KEY:** A task is only high-priority if a specific due date or registration deadline is mentioned.
-3.  **DATE FORMAT (VERY IMPORTANT):** The 'dueDate' field MUST be a string in the local ISO format 'YYYY-MM-DDTHH:mm:ss'. Do NOT include 'Z' or any timezone offsets (e.g., +05:30). The time should be the exact time mentioned in the email.
-4.  **STANDARDIZE 'assignedTo':** The "assignedTo" field must ALWAYS be "All Eligible Students".
-5.  **IGNORE LOW-PRIORITY INFO:** Do not extract general advice, workshop announcements without registration links, or "for your information" content.
+1.  **TIME WINDOW vs. DEADLINE:**
+    * If an email mentions a time range (e.g., "test is available from 9 am to 10 pm"), you MUST populate **both** 'startDate' and 'endDate'. 'dueDate' should be null.
+    * If an email mentions a single deadline (e.g., "apply by 11:00 PM"), you MUST populate 'dueDate'. 'startDate' and 'endDate' should be null.
+    * If only a date is mentioned with no time, use 'dueDate' and set the time to T00:00:00.
+
+2.  **ACTIONABILITY:**
+    * Set 'isActionable' to **true** for tasks like "Register for...", "Apply on...", "Take the online test...".
+    * Set 'isActionable' to **false** for general announcements like "The results for X will be declared on..." or "The placement drive is scheduled on...".
+
+3.  **CONCISE DESCRIPTION:** Keep the 'description' field short and to the point. Focus on the core action.
 
 ---
-**HIGH-QUALITY EXAMPLE:**
+**HIGH-QUALITY EXAMPLES:**
 
-**Email Content:** "Dear Students, Greetings! This is to inform you that the registration for the upcoming TCS Placement drive is now open. The role is for a Ninja Developer. All interested and eligible students must register on the portal by 20th September 2025, 11:00 PM. The interview process will be next week. Also, a workshop on resume building will be held in October. Regards, Helpdesk CDC"
-
-**Expected JSON Output (Note the format of dueDate):**
+**Email 1:** "Take the Tata Technologies online test between 9 am to 10 pm on 13th September 2025."
+**Expected JSON Output 1:**
 [
   {
-    "description": "Register for the TCS Placement drive for the Ninja Developer role on the portal",
+    "description": "Take the Tata Technologies online test",
+    "taskType": "Online Test",
+    "company": "Tata Technologies",
+    "startDate": "2025-09-13T09:00:00",
+    "endDate": "2025-09-13T22:00:00",
+    "dueDate": null,
+    "isActionable": true
+  }
+]
+
+**Email 2:** "Register for the Infosys Dream Core Placement on the Neo portal by Sept 15th, 2025."
+**Expected JSON Output 2:**
+[
+  {
+    "description": "Register for the Infosys Dream Core Placement on the Neo portal",
     "taskType": "Application",
-    "company": "TCS",
-    "dueDate": "2025-09-20T23:00:00",
-    "assignedTo": "All Eligible Students"
+    "company": "Infosys",
+    "startDate": null,
+    "endDate": null,
+    "dueDate": "2025-09-15T00:00:00",
+    "isActionable": true
   }
 ]
 ---
@@ -95,31 +116,6 @@ Content: ${body}
           tasks = JSON.parse(jsonMatch[0]);
         } catch (parseError) {
           throw new Error('AI returned invalid JSON');
-        }
-      }
-
-      for (const task of tasks) {
-        if (task.dueDate) {
-          const event = {
-            summary: task.description,
-            description: `Company: ${task.company}\nTask Type: ${task.taskType}`,
-            start: {
-              dateTime: task.dueDate,
-              timeZone: 'Asia/Kolkata',
-            },
-            end: {
-              dateTime: task.dueDate,
-              timeZone: 'Asia/Kolkata',
-            },
-            reminders: {
-              useDefault: false,
-              overrides: [
-                { method: 'popup', minutes: 10 }, // 10-minute popup notification before the event
-                { method: 'email', minutes: 1440 }, // Email reminder 24 hours (1440 minutes) before
-              ],
-            },
-          };
-          await createEvent(event);
         }
       }
 
