@@ -19,5 +19,8 @@ export const config = {
   },
   client: {
     url: process.env.CLIENT_URL
+  },
+  groq: {
+    apiKey: process.env.GROQ_API_KEY
   }
 };

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/authRoutes.js';
 import gmailRoutes from './routes/gmailRoutes.js';
+import groqRoutes from './routes/groqRoutes.js'; // Import groqRoutes
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -32,7 +33,7 @@ app.use(cors({
 }));
 
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Session configuration
@@ -50,6 +51,7 @@ app.use(session({
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/gmail', gmailRoutes);
+app.use('/api/groq', groqRoutes); // Use groqRoutes
 
 // Health check
 app.get('/health', (req, res) => {
