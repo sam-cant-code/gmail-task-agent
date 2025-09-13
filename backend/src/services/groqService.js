@@ -1,5 +1,6 @@
 import { Groq } from 'groq-sdk';
 import { config } from '../config/config.js';
+import { createEvent } from './calendarService.js';
 
 const groq = new Groq({
   apiKey: config.groq.apiKey,
@@ -16,33 +17,34 @@ const TASK_EXTRACTION_PROMPT = `
 You are a highly specialized AI assistant for students at VIT. Your purpose is to extract ONLY HIGH-PRIORITY actions and deadlines from emails sent by the Career Development Center (CDC). Your entire focus is on time-sensitive tasks like job applications and interview registrations.
 
 **JSON Schema:**
-For each high-priority task, create a JSON object with the following schema. Note the 'priority' field is removed.
+For each high-priority task, create a JSON object with the following schema.
 {
   "description": "string (Full, clear description of the action required)",
   "taskType": "string ('Application', 'Interview', 'Workshop', 'Deadline', or 'Other')",
   "company": "string (Company name if mentioned, otherwise null)",
-  "dueDate": "string (The exact deadline or event date, must be present for a task to be high-priority)",
+  "dueDate": "string (The exact deadline or event date, formatted as a local time ISO string 'YYYY-MM-DDTHH:mm:ss')",
   "assignedTo": "string (This should always be 'All Eligible Students')"
 }
 
 **CRITICAL INSTRUCTIONS & EXAMPLES:**
 1.  **HIGH-PRIORITY FILTER:** You MUST ONLY extract tasks that have a clear, near-term deadline. If an email is informational, about a future event without a current deadline, or a general announcement, IGNORE IT and return an empty array [].
-2.  **DEADLINE IS KEY:** A task is only high-priority if a specific due date or registration deadline is mentioned. If no deadline is mentioned, ignore the task.
-3.  **STANDARDIZE 'assignedTo':** The "assignedTo" field must ALWAYS be "All Eligible Students". Do not use any other value.
-4.  **IGNORE LOW-PRIORITY INFO:** Do not extract general advice, workshop announcements without registration links, or "for your information" content.
+2.  **DEADLINE IS KEY:** A task is only high-priority if a specific due date or registration deadline is mentioned.
+3.  **DATE FORMAT (VERY IMPORTANT):** The 'dueDate' field MUST be a string in the local ISO format 'YYYY-MM-DDTHH:mm:ss'. Do NOT include 'Z' or any timezone offsets (e.g., +05:30). The time should be the exact time mentioned in the email.
+4.  **STANDARDIZE 'assignedTo':** The "assignedTo" field must ALWAYS be "All Eligible Students".
+5.  **IGNORE LOW-PRIORITY INFO:** Do not extract general advice, workshop announcements without registration links, or "for your information" content.
 
 ---
 **HIGH-QUALITY EXAMPLE:**
 
 **Email Content:** "Dear Students, Greetings! This is to inform you that the registration for the upcoming TCS Placement drive is now open. The role is for a Ninja Developer. All interested and eligible students must register on the portal by 20th September 2025, 11:00 PM. The interview process will be next week. Also, a workshop on resume building will be held in October. Regards, Helpdesk CDC"
 
-**Expected JSON Output (Note: The workshop is ignored as it has no immediate deadline):**
+**Expected JSON Output (Note the format of dueDate):**
 [
   {
     "description": "Register for the TCS Placement drive for the Ninja Developer role on the portal",
     "taskType": "Application",
     "company": "TCS",
-    "dueDate": "20th September 2025, 11:00 PM",
+    "dueDate": "2025-09-20T23:00:00",
     "assignedTo": "All Eligible Students"
   }
 ]
@@ -96,12 +98,37 @@ Content: ${body}
         }
       }
 
+      for (const task of tasks) {
+        if (task.dueDate) {
+          const event = {
+            summary: task.description,
+            description: `Company: ${task.company}\nTask Type: ${task.taskType}`,
+            start: {
+              dateTime: task.dueDate,
+              timeZone: 'Asia/Kolkata',
+            },
+            end: {
+              dateTime: task.dueDate,
+              timeZone: 'Asia/Kolkata',
+            },
+            reminders: {
+              useDefault: false,
+              overrides: [
+                { method: 'popup', minutes: 10 }, // 10-minute popup notification before the event
+                { method: 'email', minutes: 1440 }, // Email reminder 24 hours (1440 minutes) before
+              ],
+            },
+          };
+          await createEvent(event);
+        }
+      }
+
       const tasksWithContext = tasks.map(task => ({
         ...task,
         emailId: id,
         emailSubject: subject,
       }));
-      
+
       return { success: true, emailId: id, tasks: tasksWithContext, modelUsed: model };
 
     } catch (error) {

@@ -1,0 +1,9 @@
+import express from 'express';
+import { authenticateUser } from '../middleware/auth.js';
+import * as calendarController from '../controllers/calendarController.js';
+
+const router = express.Router();
+
+router.post('/events', authenticateUser, calendarController.createEvent);
+
+export default router;

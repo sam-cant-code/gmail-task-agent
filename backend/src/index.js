@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/authRoutes.js';
 import gmailRoutes from './routes/gmailRoutes.js';
-import groqRoutes from './routes/groqRoutes.js'; // Import groqRoutes
+import groqRoutes from './routes/groqRoutes.js';
+import calendarRoutes from './routes/calendarRoutes.js'; // Import calendarRoutes
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -51,7 +52,8 @@ app.use(session({
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/gmail', gmailRoutes);
-app.use('/api/groq', groqRoutes); // Use groqRoutes
+app.use('/api/groq', groqRoutes);
+app.use('/api/calendar', calendarRoutes); 
 
 // Health check
 app.get('/health', (req, res) => {
