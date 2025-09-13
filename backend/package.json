@@ -16,6 +16,7 @@
     "express-validator": "^7.0.1",
     "google-auth-library": "^9.2.0",
     "googleapis": "^128.0.0",
+    "groq-sdk": "^0.32.0",
     "helmet": "^7.1.0"
   },
   "devDependencies": {
