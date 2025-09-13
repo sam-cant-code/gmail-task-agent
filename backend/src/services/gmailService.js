@@ -8,23 +8,16 @@ const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
 const getEmailBody = (payload) => {
   let body = '';
   
-  // Helper to decode base64
   const decodeBase64 = (data) => Buffer.from(data, 'base64').toString('utf-8');
 
-  // Helper to clean text by removing HTML tags and extra whitespace
   const cleanText = (text) => {
     return text
-      // Remove HTML tags
       .replace(/<[^>]*>/g, ' ')
-      // Remove links in angle brackets
       .replace(/<http[^>]*>/g, ' ')
-      // Replace multiple whitespace characters with a single space
       .replace(/\s+/g, ' ')
-      // Trim leading/trailing whitespace
       .trim();
   };
   
-  // Recursively search for the best part
   const findBestPart = (parts) => {
     let htmlPart = null;
     let textPart = null;
@@ -36,10 +29,8 @@ const getEmailBody = (payload) => {
         textPart = part;
       }
       
-      // If the part has nested parts, search within them
       if (part.parts) {
         const nested = findBestPart(part.parts);
-        // Prioritize nested parts if found
         htmlPart = nested.htmlPart || htmlPart;
         textPart = nested.textPart || textPart;
       }
@@ -54,11 +45,9 @@ const getEmailBody = (payload) => {
       const htmlContent = decodeBase64(htmlPart.body.data);
       body = cleanText(htmlContent);
     } else if (textPart && textPart.body.data) {
-      // Fallback to plain text if no HTML part is found
       body = decodeBase64(textPart.body.data);
     }
   } else if (payload.body.data) {
-    // For simple emails with no parts
     body = decodeBase64(payload.body.data);
   }
   
@@ -71,12 +60,19 @@ export const getUserProfile = async () => {
   return data;
 };
 
-export const listMessages = async ({ maxResults = 10, pageToken, q }) => {
+export const listMessages = async ({ maxResults = 10, pageToken, q: userQuery }) => {
+  // --- GMAIL API QUERY MODIFICATION ---
+  // 1. Define the base filters for sender and date.
+  const baseFilter = `from:("vitianscdc2026@vitstudent.ac.in") newer_than:1d`;
+
+  // 2. Combine the base filter with any user-provided search query.
+  const finalQuery = userQuery ? `${baseFilter} ${userQuery}` : baseFilter;
+
   const params = {
     userId: 'me',
     maxResults,
-    ...(pageToken && { pageToken }),
-    ...(q && { q })
+    q: finalQuery, // Use the new final query
+    ...(pageToken && { pageToken })
   };
 
   const { data } = await gmail.users.messages.list(params);
@@ -105,7 +101,6 @@ export const getMessage = async (messageId) => {
   const from = headers.find(h => h.name === 'From')?.value || 'Unknown';
   const date = headers.find(h => h.name === 'Date')?.value || '';
   
-  // Use the new function to get a clean body
   const body = getEmailBody(data.payload);
 
   return {
@@ -116,7 +111,7 @@ export const getMessage = async (messageId) => {
     subject,
     from,
     date,
-    body, // This body will now be clean
+    body,
     isUnread: data.labelIds?.includes('UNREAD')
   };
 };

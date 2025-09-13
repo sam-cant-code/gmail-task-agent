@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import useAuthStore from '../stores/authStore';
 import useEmailStore from '../stores/emailStore';
 import useUIStore from '../stores/uiStore';
+import useTaskStore from '../stores/taskStore'; // Import task store
 
 const useInitialize = () => {
   const initialized = useRef(false);
@@ -26,11 +27,18 @@ const useInitialize = () => {
 
       if (isAuthenticated) {
         try {
-          await Promise.all([
-            useAuthStore.getState().fetchUserProfile(),
-            useEmailStore.getState().fetchEmails(),
-            useEmailStore.getState().fetchLabels()
-          ]);
+          // Fetch user profile first
+          await useAuthStore.getState().fetchUserProfile();
+          
+          // Now fetch emails, and if successful, extract tasks
+          const emailData = await useEmailStore.getState().fetchEmails();
+          if (emailData && emailData.messages.length > 0) {
+            // Automatically trigger task extraction
+            await useTaskStore.getState().extractTasks(emailData);
+          } else {
+            useUIStore.getState().setSuccessMessage("Checked your inbox. No new tasks found.");
+          }
+
         } catch (error) {
           useUIStore.getState().setError('Failed to load initial data');
         }
