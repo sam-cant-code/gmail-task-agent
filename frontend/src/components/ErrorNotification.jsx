@@ -2,8 +2,7 @@ import React, { useEffect } from 'react';
 import useUIStore from '../stores/uiStore';
 
 const ErrorNotification = () => {
-  const { error, successMessage, clearError, clearSuccessMessage } =
-    useUIStore();
+  const { error, successMessage, clearError, clearSuccessMessage } = useUIStore();
 
   useEffect(() => {
     if (error) {
@@ -14,33 +13,71 @@ const ErrorNotification = () => {
     }
   }, [error, clearError]);
 
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        clearSuccessMessage();
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, clearSuccessMessage]);
+
   if (!error && !successMessage) return null;
 
   return (
-    <>
+    <div className="fixed top-4 right-4 z-50 space-y-2">
       {error && (
-        <div className="fixed top-5 right-5 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg flex items-center justify-between z-50">
-          <span>{error}</span>
-          <button
-            onClick={clearError}
-            className="ml-4 text-red-500 hover:text-red-700"
-          >
-            &times;
-          </button>
+        <div className="animate-slide-in-right bg-gray-800 border-l-4 border-red-500 rounded-lg shadow-2xl p-4 max-w-md border border-gray-700">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-semibold text-white">Error</h3>
+              <p className="text-sm text-gray-300 mt-1">{error}</p>
+            </div>
+            <button
+              onClick={clearError}
+              className="ml-4 text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
+      
       {successMessage && (
-        <div className="fixed top-5 right-5 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg flex items-center justify-between z-50">
-          <span>{successMessage}</span>
-          <button
-            onClick={clearSuccessMessage}
-            className="ml-4 text-green-500 hover:text-green-700"
-          >
-            &times;
-          </button>
+        <div className="animate-slide-in-right bg-gray-800 border-l-4 border-green-500 rounded-lg shadow-2xl p-4 max-w-md border border-gray-700">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-green-500/20 border border-green-500/30 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-semibold text-white">Success</h3>
+              <p className="text-sm text-gray-300 mt-1">{successMessage}</p>
+            </div>
+            <button
+              onClick={clearSuccessMessage}
+              className="ml-4 text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
