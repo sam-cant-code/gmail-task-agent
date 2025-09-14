@@ -25,9 +25,9 @@ const ErrorNotification = () => {
   if (!error && !successMessage) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="fixed top-4 right-4 z-50 w-full max-w-sm space-y-3">
       {error && (
-        <div className="animate-slide-in-right bg-gray-800 border-l-4 border-red-500 rounded-lg shadow-2xl p-4 max-w-md border border-gray-700">
+        <div className="animate-slide-in-right bg-gray-800/80 backdrop-blur-md border border-red-500/30 rounded-xl shadow-2xl p-4">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center">
@@ -37,7 +37,7 @@ const ErrorNotification = () => {
               </div>
             </div>
             <div className="ml-3 flex-1">
-              <h3 className="text-sm font-semibold text-white">Error</h3>
+              <h3 className="text-sm font-semibold text-white">An Error Occurred</h3>
               <p className="text-sm text-gray-300 mt-1">{error}</p>
             </div>
             <button
@@ -53,7 +53,7 @@ const ErrorNotification = () => {
       )}
       
       {successMessage && (
-        <div className="animate-slide-in-right bg-gray-800 border-l-4 border-green-500 rounded-lg shadow-2xl p-4 max-w-md border border-gray-700">
+        <div className="animate-slide-in-right bg-gray-800/80 backdrop-blur-md border border-green-500/30 rounded-xl shadow-2xl p-4">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-green-500/20 border border-green-500/30 rounded-full flex items-center justify-center">

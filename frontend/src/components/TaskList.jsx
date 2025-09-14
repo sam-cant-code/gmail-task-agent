@@ -7,16 +7,23 @@ const TaskList = () => {
   const tasks = useTaskStore((state) => state.tasks);
   const isExtracting = useTaskStore((state) => state.isLoading);
   const extractTasks = useTaskStore((state) => state.extractTasks);
+  const addTaskToCalendar = useTaskStore((state) => state.addTaskToCalendar);
   const isGlobalLoading = useUIStore((state) => state.isGlobalLoading);
+  const autoAddTask = useUIStore((state) => state.autoAddTask);
+  const toggleAutoAddTask = useUIStore((state) => state.toggleAutoAddTask);
   const fetchEmails = useEmailStore((state) => state.fetchEmails);
 
   const handleRefresh = async () => {
     const emailData = await fetchEmails();
     if (emailData && emailData.messages.length > 0) {
-      await extractTasks(emailData);
+      await extractTasks(emailData, autoAddTask);
     } else {
       useUIStore.getState().setSuccessMessage("Checked your inbox. No new tasks found.");
     }
+  };
+
+  const handleManualAdd = (task) => {
+    addTaskToCalendar(task);
   };
 
   const getPriorityColor = (priority) => {
@@ -57,31 +64,51 @@ const TaskList = () => {
   return (
     <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-        <div className="flex justify-between items-center">
+      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        <div className="flex flex-wrap justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-blue-600/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Your Tasks</h2>
               {tasks.length > 0 && (
-                <p className="text-sm text-blue-100">{tasks.length} tasks found</p>
+                <p className="text-sm text-gray-400">{tasks.length} tasks found</p>
               )}
             </div>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isExtracting}
-            className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur text-white font-medium rounded-xl hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
-          >
-            <svg className={`w-4 h-4 mr-2 ${isExtracting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {isExtracting ? 'Scanning...' : 'Refresh'}
-          </button>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+                <span>Manual Add</span>
+                <button
+                    onClick={toggleAutoAddTask}
+                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
+                    autoAddTask ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                >
+                    <span
+                    className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+                        autoAddTask ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                    />
+                </button>
+                <span>Auto Add</span>
+            </div>
+
+            <button
+              onClick={handleRefresh}
+              disabled={isExtracting}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+            >
+              <svg className={`w-4 h-4 mr-2 ${isExtracting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isExtracting ? 'Scanning...' : 'Refresh'}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -103,17 +130,15 @@ const TaskList = () => {
           {tasks.map((task, index) => (
             <div 
               key={index} 
-              className={`p-4 transition-colors duration-150 group ${
+              className={`p-4 transition-colors duration-150 group flex justify-between items-start gap-4 ${
                 index % 2 !== 0 ? 'bg-white/5' : ''
               } hover:bg-blue-900/40`}
             >
               <div>
-                {/* Task Description */}
                 <h3 className="font-semibold text-white text-base leading-tight">
                   {task.description}
                 </h3>
                 
-                {/* All metadata on the left, wrapping as needed */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs mt-2">
                   {task.priority && (
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${getPriorityColor(task.priority)}`}>
@@ -150,12 +175,46 @@ const TaskList = () => {
                       <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      {/* Removed truncate and max-w classes to prevent text cutoff */}
                       <span className="italic">{task.emailSubject}</span>
                     </div>
                   )}
                 </div>
               </div>
+              
+                {!autoAddTask && (
+                    <button
+                        onClick={() => handleManualAdd(task)}
+                        // --- NEW: Disable if creating or already created ---
+                        disabled={task.isCreating || task.created}
+                        className={`mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        task.created
+                            ? 'bg-green-500/20 text-green-300 cursor-not-allowed'
+                            : task.isCreating
+                            ? 'bg-gray-600 text-gray-400 cursor-wait'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                    >
+                        {task.created ? (
+                          <>
+                              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                              Added
+                          </>
+                        ) : task.isCreating ? (
+                          <>
+                              <svg className="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Adding...
+                          </>
+                        ) : (
+                          <>
+                              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                              Add to Calendar
+                          </>
+                        )}
+                    </button>
+                )}
             </div>
           ))}
         </div>

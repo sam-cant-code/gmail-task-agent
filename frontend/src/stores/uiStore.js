@@ -6,6 +6,7 @@ const useUIStore = create((set) => ({
   isGlobalLoading: false,
   sidebarOpen: true,
   theme: 'light',
+  autoAddTask: false, // --- NEW: State for the auto-add toggle ---
   
   setError: (error) => set({ error }),
   clearError: () => set({ error: null }),
@@ -23,6 +24,9 @@ const useUIStore = create((set) => ({
   
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+  // --- NEW: Action to toggle autoAddTask ---
+  toggleAutoAddTask: () => set(state => ({ autoAddTask: !state.autoAddTask })),
   
   setTheme: (theme) => {
     set({ theme });

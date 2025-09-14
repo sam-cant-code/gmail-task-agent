@@ -33,8 +33,10 @@ const useInitialize = () => {
           // Now fetch emails, and if successful, extract tasks
           const emailData = await useEmailStore.getState().fetchEmails();
           if (emailData && emailData.messages.length > 0) {
-            // Automatically trigger task extraction
-            await useTaskStore.getState().extractTasks(emailData);
+            // --- FIX: Get the current autoAddTask state ---
+            const autoAddTask = useUIStore.getState().autoAddTask;
+            // --- FIX: Pass the autoAddTask state to the function ---
+            await useTaskStore.getState().extractTasks(emailData, autoAddTask);
           } else {
             useUIStore.getState().setSuccessMessage("Checked your inbox. No new tasks found.");
           }

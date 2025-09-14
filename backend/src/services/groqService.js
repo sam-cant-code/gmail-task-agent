@@ -1,5 +1,6 @@
 import { Groq } from 'groq-sdk';
 import { config } from '../config/config.js';
+import { getTaskExtractionPrompt } from '../prompts/taskExtractorPrompt.js'; // --- MODIFIED: Import the prompt ---
 
 const groq = new Groq({
   apiKey: config.groq.apiKey,
@@ -10,70 +11,6 @@ const MODEL_FALLBACK_LIST = [
   'llama-3.3-70b-versatile',
   'openai/gpt-oss-120b',
 ];
-
-// --- *** NEW, SMARTER PROMPT *** ---
-const TASK_EXTRACTION_PROMPT = `
-You are a hyper-intelligent AI assistant for VIT students, specializing in extracting and structuring actionable tasks from CDC emails. Your goal is to identify specific, time-bound events and ignore vague announcements.
-
-**JSON Schema:**
-For each high-priority task, create a JSON object with the following schema.
-{
-  "description": "string (A concise, action-oriented summary of the task. E.g., 'Apply for the Systems Engineer role')",
-  "taskType": "string ('Application', 'Interview', 'Online Test', 'Workshop', 'Deadline', or 'Other')",
-  "company": "string (Company name if mentioned, otherwise null)",
-  "startDate": "string (The start time of an event in 'YYYY-MM-DDTHH:mm:ss' format. Use this for time windows.)",
-  "endDate": "string (The end time of an event in 'YYYY-MM-DDTHH:mm:ss' format. Use this for time windows.)",
-  "dueDate": "string (A single point in time deadline in 'YYYY-MM-DDTHH:mm:ss' format. Use this if there is no window.)",
-  "isActionable": "boolean (true if the task requires a direct action like applying or registering, otherwise false)"
-}
-
-**CRITICAL INSTRUCTIONS & EXAMPLES:**
-1.  **TIME WINDOW vs. DEADLINE:**
-    * If an email mentions a time range (e.g., "test is available from 9 am to 10 pm"), you MUST populate **both** 'startDate' and 'endDate'. 'dueDate' should be null.
-    * If an email mentions a single deadline (e.g., "apply by 11:00 PM"), you MUST populate 'dueDate'. 'startDate' and 'endDate' should be null.
-    * If only a date is mentioned with no time, use 'dueDate' and set the time to T00:00:00.
-
-2.  **ACTIONABILITY:**
-    * Set 'isActionable' to **true** for tasks like "Register for...", "Apply on...", "Take the online test...".
-    * Set 'isActionable' to **false** for general announcements like "The results for X will be declared on..." or "The placement drive is scheduled on...".
-
-3.  **CONCISE DESCRIPTION:** Keep the 'description' field short and to the point. Focus on the core action.
-
----
-**HIGH-QUALITY EXAMPLES:**
-
-**Email 1:** "Take the Tata Technologies online test between 9 am to 10 pm on 13th September 2025."
-**Expected JSON Output 1:**
-[
-  {
-    "description": "Take the Tata Technologies online test",
-    "taskType": "Online Test",
-    "company": "Tata Technologies",
-    "startDate": "2025-09-13T09:00:00",
-    "endDate": "2025-09-13T22:00:00",
-    "dueDate": null,
-    "isActionable": true
-  }
-]
-
-**Email 2:** "Register for the Infosys Dream Core Placement on the Neo portal by Sept 15th, 2025."
-**Expected JSON Output 2:**
-[
-  {
-    "description": "Register for the Infosys Dream Core Placement on the Neo portal",
-    "taskType": "Application",
-    "company": "Infosys",
-    "startDate": null,
-    "endDate": null,
-    "dueDate": "2025-09-15T00:00:00",
-    "isActionable": true
-  }
-]
----
-
-Now, analyze the following email content from the CDC:
-`;
-
 
 export const processSingleEmail = async (email) => {
   const { body, subject, id } = email;
@@ -89,6 +26,10 @@ Content: ${body}
 
   let lastError = null;
 
+  // --- MODIFIED: Get the current year and generate the prompt from the imported function ---
+  const currentYear = new Date().getFullYear();
+  const TASK_EXTRACTION_PROMPT = getTaskExtractionPrompt(currentYear);
+
   for (const model of MODEL_FALLBACK_LIST) {
     try {
       const completion = await groq.chat.completions.create({
@@ -103,7 +44,7 @@ Content: ${body}
           },
         ],
         model: model,
-        temperature: 0.1,
+        temperature: 0,
         max_tokens: 4096,
       });
 
