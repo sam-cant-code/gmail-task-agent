@@ -6,14 +6,13 @@ const useUIStore = create((set) => ({
   isGlobalLoading: false,
   sidebarOpen: true,
   theme: 'light',
-  autoAddTask: false, // --- NEW: State for the auto-add toggle ---
+  autoAddTask: false, // State for the auto-add toggle
   
   setError: (error) => set({ error }),
   clearError: () => set({ error: null }),
   
   setSuccessMessage: (message) => {
     set({ successMessage: message });
-    // Auto-clear success message after 5 seconds
     setTimeout(() => {
       set({ successMessage: null });
     }, 5000);
@@ -25,8 +24,13 @@ const useUIStore = create((set) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  // --- NEW: Action to toggle autoAddTask ---
-  toggleAutoAddTask: () => set(state => ({ autoAddTask: !state.autoAddTask })),
+  // --- MODIFIED: Action to toggle autoAddTask with a console log for testing ---
+  toggleAutoAddTask: () => set(state => {
+    const newState = !state.autoAddTask;
+    // This will print the new state to the browser console every time you click
+    console.log(`Auto Add Task state is now: ${newState}`); 
+    return { autoAddTask: newState };
+  }),
   
   setTheme: (theme) => {
     set({ theme });

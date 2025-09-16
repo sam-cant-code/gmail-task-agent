@@ -18,12 +18,11 @@ const useTaskStore = create((set, get) => ({
     try {
       const response = await api.post('/groq/extract-tasks', {
         emails: emailData.messages,
-        autoAddTask: autoAddTask
+        autoAddTask: autoAddTask 
       });
       
       const { allTasks, summary } = response.data;
 
-      // --- NEW: Add created and isCreating fields to each task ---
       const tasksWithStatus = allTasks.map(task => ({ 
         ...task, 
         created: autoAddTask,
@@ -57,10 +56,8 @@ const useTaskStore = create((set, get) => ({
   },
   
   addTaskToCalendar: async (task) => {
-    // --- NEW: Prevent multiple clicks ---
     if (task.isCreating || task.created) return;
 
-    // --- NEW: Set isCreating to true immediately ---
     set(state => ({
       tasks: state.tasks.map(t =>
         t.emailId === task.emailId && t.description === task.description
@@ -72,7 +69,6 @@ const useTaskStore = create((set, get) => ({
     try {
       await api.post('/calendar/events/from-task', task);
       
-      // Update the task's state to reflect that it's been added
       set(state => ({
         tasks: state.tasks.map(t => 
           t.emailId === task.emailId && t.description === task.description 
@@ -83,7 +79,6 @@ const useTaskStore = create((set, get) => ({
 
       useUIStore.getState().setSuccessMessage('Task successfully added to your calendar!');
     } catch (error) {
-      // --- NEW: Reset isCreating on error ---
       set(state => ({
         tasks: state.tasks.map(t =>
           t.emailId === task.emailId && t.description === task.description
@@ -94,6 +89,51 @@ const useTaskStore = create((set, get) => ({
       console.error('Failed to add task to calendar:', error);
       const errorMessage = error.response?.data?.error || 'Could not add task to calendar.';
       useUIStore.getState().setError(errorMessage);
+    }
+  },
+
+  // --- NEW FUNCTION TO INSTANTLY ADD ALL TASKS ---
+  addAllTasksToCalendar: async () => {
+    const tasksToAdd = get().tasks.filter(task => !task.created && !task.isCreating);
+    if (tasksToAdd.length === 0) return;
+
+    // Set all applicable tasks to 'isCreating' for instant UI feedback
+    set(state => ({
+      tasks: state.tasks.map(t => 
+        tasksToAdd.some(tta => tta.emailId === t.emailId && tta.description === tta.description) 
+        ? { ...t, isCreating: true } : t
+      )
+    }));
+    
+    useUIStore.getState().setSuccessMessage(`Adding ${tasksToAdd.length} tasks to your calendar...`);
+
+    // Send all API requests in parallel for speed
+    const results = await Promise.allSettled(
+      tasksToAdd.map(task => api.post('/calendar/events/from-task', task))
+    );
+
+    let successCount = 0;
+    
+    // Update the state based on the results of the API calls
+    set(state => ({
+      tasks: state.tasks.map(t => {
+        const taskIndex = tasksToAdd.findIndex(tta => tta.emailId === t.emailId && tta.description === t.description);
+        if (taskIndex !== -1) {
+          if (results[taskIndex].status === 'fulfilled') {
+            successCount++;
+            return { ...t, created: true, isCreating: false };
+          }
+          // If failed, just reset the loading state for that task
+          return { ...t, isCreating: false };
+        }
+        return t;
+      })
+    }));
+
+    if (successCount > 0) {
+      useUIStore.getState().setSuccessMessage(`Successfully added ${successCount} of ${tasksToAdd.length} tasks!`);
+    } else {
+       useUIStore.getState().setError('Could not add tasks to calendar.');
     }
   },
 

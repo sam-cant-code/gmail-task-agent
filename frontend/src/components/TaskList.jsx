@@ -8,24 +8,38 @@ const TaskList = () => {
   const isExtracting = useTaskStore((state) => state.isLoading);
   const extractTasks = useTaskStore((state) => state.extractTasks);
   const addTaskToCalendar = useTaskStore((state) => state.addTaskToCalendar);
+  const addAllTasksToCalendar = useTaskStore((state) => state.addAllTasksToCalendar); // Get the new function
   const isGlobalLoading = useUIStore((state) => state.isGlobalLoading);
   const autoAddTask = useUIStore((state) => state.autoAddTask);
   const toggleAutoAddTask = useUIStore((state) => state.toggleAutoAddTask);
   const fetchEmails = useEmailStore((state) => state.fetchEmails);
 
   const handleRefresh = async () => {
+    const currentAutoAddTaskState = useUIStore.getState().autoAddTask;
     const emailData = await fetchEmails();
     if (emailData && emailData.messages.length > 0) {
-      await extractTasks(emailData, autoAddTask);
+      await extractTasks(emailData, currentAutoAddTaskState);
     } else {
       useUIStore.getState().setSuccessMessage("Checked your inbox. No new tasks found.");
+    }
+  };
+
+  // --- NEW FUNCTION TO HANDLE THE TOGGLE'S ACTION ---
+  const handleToggleChange = () => {
+    const isTurningOn = !autoAddTask; // Check the state *before* toggling
+    toggleAutoAddTask(); // Update the toggle state
+
+    // If the user just turned the toggle ON, add all existing tasks
+    if (isTurningOn && tasks.length > 0) {
+      addAllTasksToCalendar();
     }
   };
 
   const handleManualAdd = (task) => {
     addTaskToCalendar(task);
   };
-
+  
+  // ... rest of the component is unchanged
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
       case 'high': return 'bg-red-900/30 text-red-300 border-red-800/50';
@@ -83,8 +97,9 @@ const TaskList = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-gray-300">
                 <span>Manual Add</span>
+                {/* --- UPDATE: Use the new handler for the toggle button --- */}
                 <button
-                    onClick={toggleAutoAddTask}
+                    onClick={handleToggleChange}
                     className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
                     autoAddTask ? 'bg-blue-600' : 'bg-gray-600'
                     }`}
@@ -181,40 +196,49 @@ const TaskList = () => {
                 </div>
               </div>
               
-                {!autoAddTask && (
-                    <button
-                        onClick={() => handleManualAdd(task)}
-                        // --- NEW: Disable if creating or already created ---
-                        disabled={task.isCreating || task.created}
-                        className={`mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        task.created
-                            ? 'bg-green-500/20 text-green-300 cursor-not-allowed'
-                            : task.isCreating
-                            ? 'bg-gray-600 text-gray-400 cursor-wait'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        }`}
-                    >
-                        {task.created ? (
-                          <>
-                              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                              Added
-                          </>
-                        ) : task.isCreating ? (
-                          <>
-                              <svg className="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Adding...
-                          </>
-                        ) : (
-                          <>
-                              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                              Add to Calendar
-                          </>
-                        )}
-                    </button>
-                )}
+                {/* --- UPDATE: Show the correct state based on autoAddTask, isCreating, or created --- */}
+                <div className="w-36 text-right flex-shrink-0">
+                  {!autoAddTask && (
+                      <button
+                          onClick={() => handleManualAdd(task)}
+                          disabled={task.isCreating || task.created}
+                          className={`inline-flex items-center justify-center w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          task.created
+                              ? 'bg-green-500/20 text-green-300 cursor-not-allowed'
+                              : task.isCreating
+                              ? 'bg-gray-600 text-gray-400 cursor-wait'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                      >
+                          {task.created ? (
+                            <>
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                Added
+                            </>
+                          ) : task.isCreating ? (
+                            <>
+                                <svg className="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Adding...
+                            </>
+                          ) : (
+                            <>
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Add to Calendar
+                            </>
+                          )}
+                      </button>
+                  )}
+                  {autoAddTask && (
+                    <div className={`inline-flex items-center justify-center w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      task.created ? 'bg-green-500/20 text-green-300' : 'bg-gray-600 text-gray-400'
+                    }`}>
+                      {task.isCreating ? 'Adding...' : task.created ? 'Added' : 'Pending'}
+                    </div>
+                  )}
+                </div>
             </div>
           ))}
         </div>

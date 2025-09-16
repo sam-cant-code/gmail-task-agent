@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import useAuthStore from '../stores/authStore';
 import useEmailStore from '../stores/emailStore';
 import useUIStore from '../stores/uiStore';
-import useTaskStore from '../stores/taskStore'; // Import task store
+import useTaskStore from '../stores/taskStore';
 
 const useInitialize = () => {
   const initialized = useRef(false);
@@ -27,16 +27,13 @@ const useInitialize = () => {
 
       if (isAuthenticated) {
         try {
-          // Fetch user profile first
           await useAuthStore.getState().fetchUserProfile();
           
-          // Now fetch emails, and if successful, extract tasks
           const emailData = await useEmailStore.getState().fetchEmails();
           if (emailData && emailData.messages.length > 0) {
-            // --- FIX: Get the current autoAddTask state ---
-            const autoAddTask = useUIStore.getState().autoAddTask;
-            // --- FIX: Pass the autoAddTask state to the function ---
-            await useTaskStore.getState().extractTasks(emailData, autoAddTask);
+            // --- FIX: Get the initial state and pass it explicitly ---
+            const initialAutoAddTaskState = useUIStore.getState().autoAddTask;
+            await useTaskStore.getState().extractTasks(emailData, initialAutoAddTaskState);
           } else {
             useUIStore.getState().setSuccessMessage("Checked your inbox. No new tasks found.");
           }

@@ -1,20 +1,6 @@
 import { processSingleEmail } from '../services/groqService.js';
 import * as calendarService from '../services/calendarService.js';
 
-// --- NEW: Helper function for deadline "heads-up" event ---
-const createDeadlineHeadsUpEvent = (task) => {
-  const taskDate = task.dueDate.split('T')[0];
-  const deadlineTime = new Date(task.dueDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  
-  return {
-    summary: `Reminder: ${task.description}`,
-    description: `This is an all-day reminder that the deadline for '${task.description}' is today at ${deadlineTime}.\n\nFrom Email: ${task.emailSubject}`,
-    start: { date: taskDate, timeZone: 'Asia/Kolkata' },
-    end: { date: taskDate, timeZone: 'Asia/Kolkata' },
-    reminders: { useDefault: true },
-  };
-};
-
 const getTaskScore = (task) => {
   let score = 0;
   if (task.startDate && task.endDate) score += 10;
@@ -83,32 +69,50 @@ export const extractTasks = async (req, res, next) => {
     
     if (autoAddTask) {
       for (const task of finalTasks) {
-        const eventEndTime = new Date(task.endDate || task.dueDate);
-        if (eventEndTime < new Date()) continue;
+        const hasDate = task.startDate || task.endDate || task.dueDate;
+        if (!hasDate) continue;
 
-        // --- NEW: Logic to handle different task types for auto-add ---
-        if (task.taskType === 'Online Test' && task.startDate) {
-            const testEvent = {
-                summary: `Test Window: ${task.description}`,
-                description: `The window to take this test is open during this time.\n\nFrom Email: ${task.emailSubject}`,
+        // --- NEW STREAMLINED LOGIC ---
+
+        // Case 1: Event with a start and end time
+        if (task.startDate && task.endDate) {
+            const eventEndTime = new Date(task.endDate + "+05:30");
+            if (eventEndTime < new Date()) continue;
+            const event = {
+                summary: task.description,
+                description: `This is a scheduled event window.\n\nFrom Email: ${task.emailSubject}`,
                 start: { dateTime: task.startDate, timeZone: 'Asia/Kolkata' },
                 end: { dateTime: task.endDate, timeZone: 'Asia/Kolkata' },
-                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] },
-            };
-            await calendarService.createEvent(testEvent);
-
-        } else if (task.dueDate) {
-            const deadlineTimedEvent = {
-                summary: `DEADLINE: ${task.description}`,
-                description: `The final deadline for this task.\n\nFrom Email: ${task.emailSubject}`,
-                start: { dateTime: task.dueDate, timeZone: 'Asia/Kolkata' },
-                end: { dateTime: new Date(new Date(task.dueDate).getTime() + 30 * 60 * 1000).toISOString(), timeZone: 'Asia/Kolkata' },
                 reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
             };
-            await calendarService.createEvent(deadlineTimedEvent);
-            
-            const headsUpEvent = createDeadlineHeadsUpEvent(task);
-            await calendarService.createEvent(headsUpEvent);
+            await calendarService.createEvent(event);
+
+        // Case 2: Deadline
+        } else if (task.dueDate) {
+            const eventDueTime = new Date(task.dueDate + "+05:30");
+            if (eventDueTime < new Date()) continue;
+            const event = {
+                summary: `DEADLINE: ${task.description}`,
+                description: `The final deadline for this task is at this time.\n\nFrom Email: ${task.emailSubject}`,
+                start: { dateTime: task.dueDate, timeZone: 'Asia/Kolkata' },
+                end: { dateTime: task.dueDate, timeZone: 'Asia/Kolkata' },
+                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
+            };
+            await calendarService.createEvent(event);
+        
+        // Case 3: Event with only a start time
+        } else if (task.startDate) {
+            const eventStartTime = new Date(task.startDate + "+05:30");
+            if (eventStartTime < new Date()) continue;
+            const eventEndTime = new Date(eventStartTime.getTime() + 60 * 60 * 1000);
+            const event = {
+                summary: task.description,
+                description: `This event was automatically created from an email.\n\nFrom Email: ${task.emailSubject}`,
+                start: { dateTime: task.startDate, timeZone: 'Asia/Kolkata' },
+                end: { dateTime: eventEndTime.toISOString(), timeZone: 'Asia/Kolkata' },
+                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
+            };
+            await calendarService.createEvent(event);
         }
       }
     }
